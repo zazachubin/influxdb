@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	platform "github.com/influxdata/influxdb/v2"
 	"github.com/influxdata/influxdb/v2/mock"
 	"github.com/influxdata/influxdb/v2/pkg/testing/assert"
@@ -27,6 +28,7 @@ var fakeDate = time.Date(2006, 5, 4, 1, 2, 3, 0, time.UTC)
 var fakeGenerator = mock.TimeGenerator{FakeValue: fakeDate}
 
 var variableCmpOptions = cmp.Options{
+	cmpopts.IgnoreFields(platform.Variable{}, "UpdatedAt"),
 	cmp.Comparer(func(x, y []byte) bool {
 		return bytes.Equal(x, y)
 	}),
@@ -501,7 +503,6 @@ func FindVariableByID(init func(VariableFields, *testing.T) (platform.VariableSe
 						},
 						CRUDLog: platform.CRUDLog{
 							CreatedAt: fakeDate,
-							UpdatedAt: fakeDate,
 						},
 					},
 					{
@@ -514,7 +515,6 @@ func FindVariableByID(init func(VariableFields, *testing.T) (platform.VariableSe
 						},
 						CRUDLog: platform.CRUDLog{
 							CreatedAt: fakeDate,
-							UpdatedAt: fakeDate,
 						},
 					},
 				},
@@ -534,7 +534,6 @@ func FindVariableByID(init func(VariableFields, *testing.T) (platform.VariableSe
 					},
 					CRUDLog: platform.CRUDLog{
 						CreatedAt: fakeDate,
-						UpdatedAt: fakeDate,
 					},
 				},
 			},
@@ -576,7 +575,7 @@ func FindVariableByID(init func(VariableFields, *testing.T) (platform.VariableSe
 				return
 			}
 
-			if diff := cmp.Diff(variable, tt.wants.variable); diff != "" {
+			if diff := cmp.Diff(variable, tt.wants.variable, variableCmpOptions...); diff != "" {
 				t.Fatalf("found unexpected variable -got/+want\ndiff %s", diff)
 			}
 		})
