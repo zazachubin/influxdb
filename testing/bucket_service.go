@@ -71,30 +71,34 @@ func BucketService(
 		name string
 		fn   bucketServiceF
 	}{
+		// {
+		// 	name: "CreateBucket",
+		// 	fn:   CreateBucket,
+		// },
+		// {
+		// 	name: "FindBucketByID",
+		// 	fn:   FindBucketByID,
+		// },
+		// {
+		// 	name: "FindBuckets",
+		// 	fn:   FindBuckets,
+		// },
 		{
-			name: "CreateBucket",
-			fn:   CreateBucket,
+			name: "FindSystemBuckets",
+			fn:   FindSystemBuckets,
 		},
-		{
-			name: "FindBucketByID",
-			fn:   FindBucketByID,
-		},
-		{
-			name: "FindBuckets",
-			fn:   FindBuckets,
-		},
-		{
-			name: "FindBucket",
-			fn:   FindBucket,
-		},
-		{
-			name: "UpdateBucket",
-			fn:   UpdateBucket,
-		},
-		{
-			name: "DeleteBucket",
-			fn:   DeleteBucket,
-		},
+		// {
+		// 	name: "FindBucket",
+		// 	fn:   FindBucket,
+		// },
+		// {
+		// 	name: "UpdateBucket",
+		// 	fn:   UpdateBucket,
+		// },
+		// {
+		// 	name: "DeleteBucket",
+		// 	fn:   DeleteBucket,
+		// },
 	}
 
 	for _, tt := range tests {
@@ -908,6 +912,120 @@ func FindBuckets(
 
 			if diff := cmp.Diff(filteredBuckets, tt.wants.buckets, bucketCmpOptions...); diff != "" {
 				t.Errorf("buckets are different -got/+want\ndiff %s", diff)
+			}
+		})
+	}
+}
+
+// FindSystemBuckets testing
+func FindSystemBuckets(
+	init func(BucketFields, *testing.T) (influxdb.BucketService, string, func()),
+	t *testing.T,
+) {
+	type args struct {
+		ID             influxdb.ID
+		name           string
+		organization   string
+		organizationID influxdb.ID
+		findOptions    influxdb.FindOptions
+	}
+
+	type wants struct {
+		buckets []*influxdb.Bucket
+		err     error
+	}
+	tests := []struct {
+		name   string
+		fields BucketFields
+		args   args
+		wants  wants
+	}{
+		{
+			name: "find legacy task and monitoring buckets",
+			fields: BucketFields{
+				OrgIDs:    mock.NewIncrementingIDGenerator(idOne),
+				BucketIDs: mock.NewIncrementingIDGenerator(idOne),
+				Organizations: []*influxdb.Organization{
+					{
+						// ID(1)
+						Name: "theorg",
+					},
+				},
+				Buckets: []*influxdb.Bucket{
+					{
+						// ID(1)
+						OrgID: idOne,
+						ID:    idTwo,
+						Name:  "abc",
+					},
+					// {
+					// 	OrgID: idOne,
+					// 	Name:  influxdb.TasksSystemBucketName,
+					// 	ID:    influxdb.TasksSystemBucketID,
+					// },
+					// {
+					// 	OrgID: idOne,
+					// 	Name:  influxdb.MonitoringSystemBucketName,
+					// 	ID:    influxdb.MonitoringSystemBucketID,
+					// },
+				},
+			},
+			args: args{
+				organizationID: idOne,
+			},
+			wants: wants{
+				buckets: []*influxdb.Bucket{
+					{
+						Name:            influxdb.TasksSystemBucketName,
+						ID:              influxdb.TasksSystemBucketID,
+						Type:            influxdb.BucketTypeSystem,
+						RetentionPeriod: influxdb.TasksSystemBucketRetention,
+						Description:     "System bucket for task logs",
+					},
+					{
+						Name:            influxdb.MonitoringSystemBucketName,
+						ID:              influxdb.MonitoringSystemBucketID,
+						Type:            influxdb.BucketTypeSystem,
+						RetentionPeriod: influxdb.MonitoringSystemBucketRetention,
+						Description:     "System bucket for monitoring logs",
+					},
+					{
+						ID:    idTwo,
+						OrgID: idOne,
+						Name:  "abc",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, opPrefix, done := init(tt.fields, t)
+			defer done()
+			ctx := context.Background()
+
+			filter := influxdb.BucketFilter{}
+			if tt.args.ID.Valid() {
+				filter.ID = &tt.args.ID
+			}
+			if tt.args.organizationID.Valid() {
+				filter.OrganizationID = &tt.args.organizationID
+			}
+			if tt.args.organization != "" {
+				filter.Org = &tt.args.organization
+			}
+			if tt.args.name != "" {
+				filter.Name = &tt.args.name
+			}
+
+			buckets, _, err := s.FindBuckets(ctx, filter, tt.args.findOptions)
+			diffPlatformErrors(tt.name, err, tt.wants.err, opPrefix, t)
+
+			for i, b := range buckets {
+				if diff := cmp.Diff(b, tt.wants.buckets[i], bucketCmpOptions...); diff != "" {
+					t.Errorf("buckets are different -got/+want\ndiff %s", diff)
+				}
 			}
 		})
 	}
