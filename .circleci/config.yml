@@ -199,6 +199,23 @@ jobs:
           path: ~/e2e/test-results
       - store_artifacts:
           path: ~/e2e/artifacts
+  grace_nightly:
+    docker:
+      - image: quay.io/influxdb/grace:latest
+      - image: quay.io/influxdb/influx:nightly
+    steps:
+      - run:
+          name: Environment check
+          command: |
+            timeout 300 bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:9999)" != "200" ]]; do sleep 5; done' || false
+      - attach_workspace:
+          at: ~/project
+      - run: docker login -u=$QUAY_USER -p=$QUAY_PASS quay.io
+      - run: docker run -v /var/run/docker.sock:/var/run/docker.sock grace:latest
+      - store_artifacts:
+          path: ~/project/grace-results
+      - store_test_results:
+          path: ~/project/grace-results
   jstest:
     docker:
       - image: circleci/golang:1.13-node-browsers
@@ -532,6 +549,9 @@ workflows:
           requires:
             - deploy-nightly
       - selenium_accept:
+          requires:
+            - deploy-nightly
+      - grace_nightly:
           requires:
             - deploy-nightly
   release:
