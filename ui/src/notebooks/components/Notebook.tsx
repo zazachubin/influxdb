@@ -1,16 +1,29 @@
 // Libraries
-import React, {FC} from 'react'
+import React, {FC, useContext, useEffect} from 'react'
+import {useParams} from 'react-router-dom'
 
 // Components
 import {Page} from '@influxdata/clockface'
 import {ResultsProvider} from 'src/notebooks/context/results'
 import {RefProvider} from 'src/notebooks/context/refs'
-import CurrentNotebook from 'src/notebooks/context/notebook.current'
+import CurrentNotebookProvider, {
+  NotebookContext,
+} from 'src/notebooks/context/notebook.current'
 import {ScrollProvider} from 'src/notebooks/context/scroll'
 import NotebookHeader from 'src/notebooks/components/header'
 import PipeList from 'src/notebooks/components/PipeList'
 import MiniMap from 'src/notebooks/components/minimap/MiniMap'
 
+const NotebookFromRoute = () => {
+  const {id} = useParams()
+  const {change} = useContext(NotebookContext)
+
+  useEffect(() => {
+    change(id)
+  }, [id, change])
+
+  return null
+}
 // NOTE: uncommon, but using this to scope the project
 // within the page and not bleed it's dependancies outside
 // of the feature flag
@@ -18,7 +31,8 @@ import 'src/notebooks/style.scss'
 
 const NotebookPage: FC = () => {
   return (
-    <CurrentNotebook>
+    <CurrentNotebookProvider>
+      <NotebookFromRoute />
       <ResultsProvider>
         <RefProvider>
           <ScrollProvider>
@@ -38,7 +52,7 @@ const NotebookPage: FC = () => {
           </ScrollProvider>
         </RefProvider>
       </ResultsProvider>
-    </CurrentNotebook>
+    </CurrentNotebookProvider>
   )
 }
 
